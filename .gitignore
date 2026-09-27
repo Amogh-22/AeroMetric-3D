@@ -1,0 +1,59 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ===== ML Model Weights =====
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# ===== Generated Pipeline Outputs =====
+dataset/
+dataset_*/
+test_dataset/
+frames/
+masks/
+uploads/
+
+# ===== Large Media Files =====
+*.mp4
+*.mov
+*.avi
+*.glb
+!web_viewer/public/sample_model.glb
+
+# ===== Archives =====
+*.zip
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===== Node / Next.js =====
+node_modules/
+.next/
+out/
+.vercel
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== Env =====
+.env
+.env.*
+
+# ===== Misc =====
+*.log
+*.tif
+*.las
+npm-debug.log*

@@ -8,6 +8,10 @@ def run_sparse_reconstruction(dataset_dir):
     database_path = dataset_path / "database.db"
     sfm_output_path = dataset_path / "sparse/0" 
     
+    if (sfm_output_path / "cameras.bin").exists() or (sfm_output_path / "cameras.txt").exists():
+        print(f"\nSfM output already exists at {sfm_output_path} — skipping reconstruction!")
+        return
+
     sfm_output_path.mkdir(parents=True, exist_ok=True)
     
     if database_path.exists():
@@ -49,4 +53,7 @@ def run_sparse_reconstruction(dataset_dir):
     reconstruction.write_text(str(sfm_output_path))
     print(f"Poses saved to {sfm_output_path}")
 
-run_sparse_reconstruction("./dataset")
+if __name__ == "__main__":
+    import sys
+    dataset_dir = sys.argv[1] if len(sys.argv) > 1 else "./dataset"
+    run_sparse_reconstruction(dataset_dir)

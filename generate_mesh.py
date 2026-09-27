@@ -154,7 +154,14 @@ def build_scene_mesh(dataset_dir):
 
     out_ply = os.path.join(dataset_dir, "metric_reconstruction.ply")
     scene_mesh.export(out_ply)
-    print(f"\nSuccessfully generated metric mesh: {out_ply}")
+    
+    out_glb = os.path.join(dataset_dir, "metric_reconstruction.glb")
+    scene_mesh.export(out_glb)
+
+    out_obj = os.path.join(dataset_dir, "metric_reconstruction.obj")
+    scene_mesh.export(out_obj)
+    
+    print(f"\nSuccessfully generated metric mesh: {out_ply}, {out_glb}, {out_obj}")
 
     # Generate the NTRO Confidence Heatmap Mesh
     # Red = Far/boundary edges (low confidence); Green = Close/planar surface (high confidence)
@@ -175,4 +182,6 @@ def build_scene_mesh(dataset_dir):
     print(f"Successfully generated confidence mesh: {conf_ply}")
 
 if __name__ == "__main__":
-    build_scene_mesh("./dataset")
+    import sys
+    dataset_dir = sys.argv[1] if len(sys.argv) > 1 else "./dataset"
+    build_scene_mesh(dataset_dir)

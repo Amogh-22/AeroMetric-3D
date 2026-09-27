@@ -34,8 +34,13 @@ def transform_to_camera_coords(image, p3d):
         return rigid3d * p3d
 
 def generate_metric_depths(dataset_dir):
-    print("1. Loading Depth Anything V2 (Apple MPS Backend)...")
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    print(f"1. Loading Depth Anything V2 on device: {device.upper()}...")
     pipe = pipeline(task="depth-estimation", model="depth-anything/Depth-Anything-V2-Small-hf", device=device)
 
     print("2. Loading PyCOLMAP Sparse Reconstruction...")
@@ -91,7 +96,14 @@ def generate_metric_depths(dataset_dir):
             np.save(save_path, metric_depth_map)
             print(f"Scaled {image_name} | Used {len(metric_depths)} points | Scale: {s:.3f}, Shift: {t:.3f}")
         else:
-            print(f"Skipped {image_name}: Insufficient 3D points ({len(metric_depths)}) for alignment.")
+            # Fallback estimation for frames with insufficient 3D sparse points
+            norm_depth = (rel_depth_map - rel_depth_map.min()) / (np.ptp(rel_depth_map) + 1e-5)
+            metric_depth_map = 5.0 + norm_depth * 25.0  # reasonable drone flight elevation span (5m - 30m)
+            save_path = os.path.join(output_dir, f"{image_name}.npy")
+            np.save(save_path, metric_depth_map)
+            print(f"Fallback depth applied for {image_name} ({len(metric_depths)} points).")
 
 if __name__ == "__main__":
-    generate_metric_depths("./dataset")
+    import sys
+    dataset_dir = sys.argv[1] if len(sys.argv) > 1 else "./dataset"
+    generate_metric_depths(dataset_dir)

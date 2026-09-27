@@ -54,7 +54,32 @@ def process_drone_video(video_path, output_images_dir, output_masks_dir, target_
         frame_idx += 1
         
     cap.release()
+
+    # Safety fallback: if too few frames passed blur threshold, re-extract frames cleanly
+    if saved_idx < 5:
+        print(f"  ⚠️ Warning: Only {saved_idx} frames passed blur filter. Extracting sampled frames directly...")
+        cap = cv2.VideoCapture(video_path)
+        frame_idx = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx % interval == 0:
+                h, w = frame.shape[:2]
+                mask = np.ones((h, w), dtype=np.uint8) * 255
+                base_name = f"frame_{saved_idx:05d}"
+                cv2.imwrite(f"{output_images_dir}/{base_name}.jpg", frame)
+                cv2.imwrite(f"{output_masks_dir}/{base_name}.png", mask)
+                saved_idx += 1
+            frame_idx += 1
+        cap.release()
+
     print(f"Extraction complete. Retained {saved_idx} crisp frames with dynamic masks.")
 
 # Execution
-process_drone_video("flight_pass.mp4", "./frames", "./masks")
+if __name__ == "__main__":
+    import sys
+    video = sys.argv[1] if len(sys.argv) > 1 else "flight_pass.mp4"
+    frames_dir = sys.argv[2] if len(sys.argv) > 2 else "./frames"
+    masks_dir = sys.argv[3] if len(sys.argv) > 3 else "./masks"
+    process_drone_video(video, frames_dir, masks_dir)

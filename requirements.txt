@@ -1,0 +1,21 @@
+# AeroMetric-3D — Python Dependencies
+# Tested on Python 3.13.x / macOS ARM64 (Apple Silicon)
+
+# Core computation
+numpy>=1.26.4
+opencv-python>=4.9.0
+
+# 3D reconstruction
+pycolmap>=4.2.0
+trimesh>=5.1.0
+
+# AI depth estimation
+torch>=2.10.0
+transformers>=5.17.0
+pillow>=11.2.0
+
+# Dynamic object detection
+ultralytics>=8.3.0
+
+# Telemetry / geospatial (for future use)
+pymap3d>=3.2.0
