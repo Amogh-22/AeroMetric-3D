@@ -18,7 +18,7 @@ Usage:
 import os
 # CRITICAL: Prevent pipe deadlocks with \r progress bars when piped to Colab's Flask server
 os.environ["TQDM_DISABLE"] = "1" 
-os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import sys
 import time
@@ -28,8 +28,8 @@ from pathlib import Path
 from datetime import datetime
 
 
-def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset"):
-    """Execute the full AeroMetric-3D reconstruction pipeline."""
+def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset", roi_prompt=None):
+    """Execute the full AeroMetric-3D reconstruction pipeline with foreground prioritization."""
 
     dataset_path = Path(dataset_dir).resolve()
     video_path = Path(video_path).resolve()
@@ -38,9 +38,11 @@ def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset"):
     print("=" * 70)
     print("  AeroMetric-3D — Full Reconstruction Pipeline")
     print("=" * 70)
-    print(f"  Video:   {video_path}")
-    print(f"  Dataset: {dataset_path}")
-    print(f"  Started: {datetime.now().isoformat()}")
+    print(f"  Video:      {video_path}")
+    print(f"  Dataset:    {dataset_path}")
+    if roi_prompt:
+        print(f"  ROI Prompt: {roi_prompt}")
+    print(f"  Started:    {datetime.now().isoformat()}")
     print("=" * 70)
     
     def update_progress(msg):
@@ -92,9 +94,11 @@ def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset"):
         print("(Delete dataset/images/ to re-extract)")
     else:
         import subprocess
-        print("  Running preprocess_drone_video.py in isolated process...")
         t0 = time.time()
-        result = subprocess.run([sys.executable, str(script_dir / "preprocess_drone_video.py"), str(video_path), str(images_dir), str(masks_dir)], capture_output=True, text=True)
+        cmd = [sys.executable, str(script_dir / "preprocess_drone_video.py"), str(video_path), str(images_dir), str(masks_dir)]
+        if roi_prompt:
+            cmd.extend(["--roi_prompt", str(roi_prompt)])
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             error_msg = "ERROR: Preprocessing failed:\n" + result.stderr
             print(error_msg)
@@ -255,6 +259,7 @@ def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset"):
         "frames_extracted": n_frames,
         "frames_registered": n_registered,
         "sparse_points": n_points,
+        "roi_prompt": roi_prompt,
         "stage_times": stage_times,
     }
     meta_path = dataset_path / "pipeline_metadata.json"
@@ -263,11 +268,11 @@ def run_pipeline(video_path="./flight_pass.mp4", dataset_dir="./dataset"):
 
     return True
 
-def run_pipeline_with_error_reporting(video_path, dataset_dir):
+def run_pipeline_with_error_reporting(video_path, dataset_dir, roi_prompt=None):
     dataset_path = Path(dataset_dir).resolve()
     dataset_path.mkdir(parents=True, exist_ok=True)
     try:
-        success = run_pipeline(video_path, dataset_dir)
+        success = run_pipeline(video_path, dataset_dir, roi_prompt=roi_prompt)
         if not success:
             meta_file = dataset_path / "geospatial_metadata.json"
             has_err = False
@@ -290,20 +295,37 @@ def run_pipeline_with_error_reporting(video_path, dataset_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) <= 1:
+    raw_args = sys.argv[1:]
+    roi_prompt = None
+
+    # Extract --roi_prompt if present
+    filtered_args = []
+    i = 0
+    while i < len(raw_args):
+        if raw_args[i] == "--roi_prompt" and i + 1 < len(raw_args):
+            roi_prompt = raw_args[i + 1]
+            i += 2
+        elif raw_args[i].startswith("--roi_prompt="):
+            roi_prompt = raw_args[i].split("=", 1)[1]
+            i += 1
+        else:
+            filtered_args.append(raw_args[i])
+            i += 1
+
+    if len(filtered_args) <= 0:
         video = "./flight_pass.mp4"
         dataset = "./dataset"
-    elif len(sys.argv) == 2:
-        video = sys.argv[1]
+    elif len(filtered_args) == 1:
+        video = filtered_args[0]
         dataset = "./dataset"
-    elif len(sys.argv) == 3:
-        video = sys.argv[1]
-        dataset = sys.argv[2]
+    elif len(filtered_args) == 2:
+        video = filtered_args[0]
+        dataset = filtered_args[1]
     else:
         # If shell split unquoted video path containing spaces:
         # Last argument is dataset_dir, all prior arguments form the video path
-        dataset = sys.argv[-1]
-        video = " ".join(sys.argv[1:-1])
+        dataset = filtered_args[-1]
+        video = " ".join(filtered_args[:-1])
 
-    success = run_pipeline_with_error_reporting(video, dataset)
+    success = run_pipeline_with_error_reporting(video, dataset, roi_prompt=roi_prompt)
     sys.exit(0 if success else 1)

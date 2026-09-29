@@ -136,8 +136,19 @@ export default function VideoUpload({
             
             if (statusData.status === "failed") {
               setUploadState("error");
-              const err = statusData.error || statusData.error_details || statusData.log || "Pipeline failed on Colab. Please check the notebook output cells.";
-              setErrorMessage(err);
+              let err = statusData.error || statusData.error_details || statusData.log;
+              if (!err) {
+                try {
+                  const metaRes = await fetch(`${cleanUrl}/metadata/${datasetName}`, {
+                    headers: { "Bypass-Tunnel-Reminder": "true", "ngrok-skip-browser-warning": "true" }
+                  });
+                  if (metaRes.ok) {
+                    const metaData = await metaRes.json();
+                    if (metaData.error) err = metaData.error;
+                  }
+                } catch (_) {}
+              }
+              setErrorMessage(err || "Pipeline failed on Colab. Please check the notebook output cells.");
               return;
             }
             

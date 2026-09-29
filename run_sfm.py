@@ -1,4 +1,6 @@
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import pycolmap
 from pathlib import Path
 
@@ -17,10 +19,18 @@ def run_sparse_reconstruction(dataset_dir):
     if database_path.exists():
         database_path.unlink()
 
+    # Configure ImageReaderOptions with masks to eliminate sky & dynamic noise from feature tracking
+    reader_options = pycolmap.ImageReaderOptions()
+    masks_dir = dataset_path / "masks"
+    if masks_dir.exists() and any(masks_dir.glob("*.png")):
+        reader_options.mask_path = str(masks_dir)
+        print(f"  ✓ Applying SfM feature masks from {masks_dir} (excluding sky & dynamic objects)")
+
     print("1. Extracting Features...")
     pycolmap.extract_features(
         database_path=database_path,
         image_path=image_dir,
+        reader_options=reader_options,
     )
 
     print("2. Matching Features...")

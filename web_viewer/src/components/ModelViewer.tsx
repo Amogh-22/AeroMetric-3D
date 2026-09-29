@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Html, useProgress } from "@react-three/drei";
-import { AlertCircle, RotateCcw, Box, RefreshCw, Eye } from "lucide-react";
+import { AlertCircle, RotateCcw, Box, RefreshCw, Eye, ArrowUpDown, Compass } from "lucide-react";
 
 function Loader() {
   const { progress } = useProgress();
@@ -34,24 +34,28 @@ function Loader() {
 
 function MeshModel({ 
   url, 
-  wireframe = false 
+  wireframe = false,
+  invertY = false,
+  showBoundingBox = true
 }: { 
   url: string; 
   wireframe?: boolean;
+  invertY?: boolean;
+  showBoundingBox?: boolean;
 }) {
   const { scene } = useGLTF(url);
   
   // Clone scene so we never mutate the useGLTF cache, ensuring stable scale & position across reloads
-  const { modelGroup, center, scale } = useMemo(() => {
+  const { modelGroup, center, scale, size } = useMemo(() => {
     const clone = scene.clone(true);
     
     // Compute exact bounding box on pristine unscaled geometry
     const box = new THREE.Box3().setFromObject(clone);
     const c = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
+    const sz = box.getSize(new THREE.Vector3());
     
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const sc = maxDim > 0 ? 13 / maxDim : 1;
+    const maxDim = Math.max(sz.x, sz.y, sz.z);
+    const sc = maxDim > 0 ? 10.5 / maxDim : 1;
 
     // Initialize materials once with pure white color (0xffffff)
     // so original vertex colors and textures render with 100% natural photographic fidelity
@@ -85,7 +89,7 @@ function MeshModel({
       modelGroup: clone,
       center: c,
       scale: sc,
-      bottomY: (box.min.y - c.y) * sc
+      size: sz
     };
   }, [scene]);
 
@@ -105,10 +109,24 @@ function MeshModel({
 
   return (
     <group 
-      scale={[scale, scale, scale]} 
-      position={[-center.x * scale, -center.y * scale, -center.z * scale]}
+      scale={[scale, invertY ? -scale : scale, scale]} 
+      position={[-center.x * scale, -center.y * (invertY ? -scale : scale), -center.z * scale]}
+      rotation={[invertY ? Math.PI : 0, 0, 0]}
     >
       <primitive object={modelGroup} />
+
+      {/* Holographic Bounding Box Cage enclosing the 3D model */}
+      {showBoundingBox && size && (
+        <mesh position={[center.x, center.y, center.z]}>
+          <boxGeometry args={[size.x * 1.02, size.y * 1.02, size.z * 1.02]} />
+          <meshBasicMaterial 
+            color="#38bdf8" 
+            wireframe 
+            transparent 
+            opacity={0.35} 
+          />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -132,6 +150,8 @@ export default function ModelViewer({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>("0 MB");
+  const [invertY, setInvertY] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(true);
   const controlsRef = useRef<any>(null);
 
   useEffect(() => {
@@ -205,6 +225,22 @@ export default function ModelViewer({
     }
   };
 
+  const setCameraView = (view: 'iso' | 'front' | 'top' | 'bottom') => {
+    if (!controlsRef.current) return;
+    const ctrl = controlsRef.current;
+    if (view === 'iso') {
+      ctrl.object.position.set(6.5, 4.5, 7.5);
+    } else if (view === 'front') {
+      ctrl.object.position.set(0, 1.2, 9.5);
+    } else if (view === 'top') {
+      ctrl.object.position.set(0, 11.0, 0.01);
+    } else if (view === 'bottom') {
+      ctrl.object.position.set(0, -11.0, 0.01);
+    }
+    ctrl.target.set(0, 0, 0);
+    ctrl.update();
+  };
+
   if (!modelUrl) return null;
 
   if (errorMsg) {
@@ -267,8 +303,64 @@ export default function ModelViewer({
 
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-[#081226] via-[#060e1d] to-[#040914] overflow-hidden select-none">
-      {/* Floating Viewport Quick Controls */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-[#09152e]/80 backdrop-blur-md border border-blue-500/20 rounded-xl p-1.5 shadow-lg">
+      {/* Floating Viewport Quick Controls Toolbar */}
+      <div className="absolute top-4 right-4 z-10 flex flex-wrap items-center gap-2 bg-[#09152e]/85 backdrop-blur-md border border-blue-500/25 rounded-xl p-1.5 shadow-[0_4px_25px_rgba(0,0,0,0.4)]">
+        {/* Flip 180° / Invert Y Axis button */}
+        <button
+          onClick={() => setInvertY(prev => !prev)}
+          title="Flip Model 180° Upright"
+          className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
+            invertY 
+              ? "bg-cyan-500/30 text-cyan-200 border border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.3)]" 
+              : "text-blue-300 hover:text-white hover:bg-blue-600/30"
+          }`}
+        >
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          <span className="text-[11px] hidden sm:inline">Flip 180°</span>
+        </button>
+
+        {/* Boundary Box Cage Toggle */}
+        <button
+          onClick={() => setShowBoundingBox(prev => !prev)}
+          title="Toggle 3D Boundary Box Cage"
+          className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
+            showBoundingBox 
+              ? "bg-blue-600/30 text-blue-200 border border-blue-400/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]" 
+              : "text-blue-400/60 hover:text-white hover:bg-blue-600/20"
+          }`}
+        >
+          <Box className="w-3.5 h-3.5" />
+          <span className="text-[11px] hidden sm:inline">Box Cage</span>
+        </button>
+
+        <div className="h-4 w-[1px] bg-blue-500/30 mx-0.5" />
+
+        {/* Camera Preset Angles */}
+        <button
+          onClick={() => setCameraView('front')}
+          title="Front View"
+          className="px-2 py-1 text-[11px] font-medium text-blue-300 hover:text-white hover:bg-blue-600/30 rounded-lg transition-colors"
+        >
+          Front
+        </button>
+        <button
+          onClick={() => setCameraView('top')}
+          title="Top View"
+          className="px-2 py-1 text-[11px] font-medium text-blue-300 hover:text-white hover:bg-blue-600/30 rounded-lg transition-colors"
+        >
+          Top
+        </button>
+        <button
+          onClick={() => setCameraView('bottom')}
+          title="Bottom View (Inspect Foundation)"
+          className="px-2 py-1 text-[11px] font-medium text-cyan-300 hover:text-white hover:bg-cyan-600/30 rounded-lg transition-colors"
+        >
+          Bottom
+        </button>
+
+        <div className="h-4 w-[1px] bg-blue-500/30 mx-0.5" />
+
+        {/* Reset Camera */}
         <button
           onClick={handleResetCamera}
           title="Reset Camera View"
@@ -288,9 +380,9 @@ export default function ModelViewer({
         <color attach="background" args={['#060e1d']} />
         <fog attach="fog" args={['#060e1d', 30, 100]} />
 
-        <ambientLight intensity={1.4} />
+        <ambientLight intensity={1.5} />
         <directionalLight position={[15, 25, 20]} intensity={2.2} />
-        <directionalLight position={[-15, -10, -15]} intensity={0.9} color="#60a5fa" />
+        <directionalLight position={[-15, -15, -15]} intensity={1.1} color="#60a5fa" />
         
         {/* Aerospace Coordinate Reference Grid right beneath building base */}
         {showGrid && (
@@ -301,7 +393,13 @@ export default function ModelViewer({
         )}
         
         <React.Suspense fallback={<Loader />}>
-          <MeshModel key={blobUrl} url={blobUrl} wireframe={wireframe} />
+          <MeshModel 
+            key={blobUrl} 
+            url={blobUrl} 
+            wireframe={wireframe} 
+            invertY={invertY}
+            showBoundingBox={showBoundingBox}
+          />
         </React.Suspense>
 
         <OrbitControls
@@ -309,8 +407,10 @@ export default function ModelViewer({
           makeDefault
           enableDamping
           dampingFactor={0.06}
-          minDistance={1.5}
+          minDistance={0.5}
           maxDistance={150}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
           target={[0, 0, 0]}
         />
       </Canvas>
