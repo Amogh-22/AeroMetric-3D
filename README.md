@@ -135,6 +135,27 @@ Not a cosmetic heatmap — confidence is based on actual proximity to SfM geomet
 | Computer Vision | OpenCV |
 | Inference | PyTorch (MPS backend) |
 
+## 🧪 Information for Running
+
+Since Colab environments are ephemeral, the backend GPU server might not be actively running when you evaluate this project. You have two ways to test AeroMetric-3D:
+
+### Option 1: Instant Demo (No Setup)
+1. Open the deployed Web Viewer.
+2. On the input panel, click the **"Direct / Demo"** tab.
+3. Click **"Load Sample Model"**.
+4. The viewer will instantly load a pre-computed 3D digital twin and its geospatial telemetry.
+
+### Option 2: Run the Full Pipeline
+If you would like to test the video-to-3D pipeline yourself:
+1. Open `AeroMetric_Colab_GPU.ipynb` in [Google Colab](https://colab.research.google.com/).
+2. Go to **Runtime > Change runtime type** and ensure **T4 GPU** is selected.
+3. Get a free Auth Token from [Ngrok](https://dashboard.ngrok.com/get-started/your-authtoken).
+4. Paste the token into the `NGROK_AUTH_TOKEN` variable in the notebook.
+5. Run all cells (`Runtime > Run all`).
+6. At the bottom of the output, copy the generated Ngrok public URL.
+7. Go to the Web Viewer, paste the URL into the **"Colab Tunnel URL"** field, and upload a drone video!
+
+
 ## Project Structure
 
 ```
@@ -176,3 +197,5 @@ AeroMetric-3D/
 ## License
 
 This project is developed for Smart India Hackathon 2026.
+
+
